@@ -26,6 +26,7 @@ import PurchaseList from './pages/inventory/PurchaseList';
 import SalesList from './pages/inventory/SalesList';
 import SupplierList from './pages/inventory/SupplierList';
 import Reports from './pages/inventory/Reports';
+import BarcodeScanStation from './pages/inventory/BarcodeScanStation';
 function PrivateRoute({ children }) {
   const { isAuthenticated } = useSelector((s) => s.auth);
   return isAuthenticated ? children : <Navigate to="/login" replace />;
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="/inventory/sales" element={<PrivateRoute><AppLayout><SalesList /></AppLayout></PrivateRoute>} />
         <Route path="/inventory/suppliers" element={<PrivateRoute><AppLayout><SupplierList /></AppLayout></PrivateRoute>} />
         <Route path="/inventory/reports" element={<PrivateRoute><AppLayout><Reports /></AppLayout></PrivateRoute>} />
+        <Route path="/inventory/barcode-scanner" element={<PrivateRoute><AppLayout><BarcodeScanStation /></AppLayout></PrivateRoute>} />
         {/* Invoice module routes */}
         <Route path="/invoice/add-customer" element={<PrivateRoute><AppLayout><AddInvoiceCustomer /></AppLayout></PrivateRoute>} />
         <Route path="/invoice/edit-customer/:id" element={<PrivateRoute><AppLayout><EditInvoiceCustomer /></AppLayout></PrivateRoute>} />

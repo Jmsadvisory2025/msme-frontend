@@ -105,3 +105,83 @@ export const exportReportPDF = async (reportType) => {
     return { data: null, error: errorMessage };
   }
 };
+
+// ──────────────────────────────────────────────────────────────
+// BARCODE APIs - DMart-style Barcode Scanning System
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Scan a barcode and perform an action.
+ * @param {string} barcode - The barcode string
+ * @param {string} action - LOOKUP | STOCK_OUT | STOCK_IN | SALE
+ * @param {number} quantity - Quantity to stock out/in (default 1)
+ * @param {string} notes - Optional notes
+ */
+export const scanBarcode = (barcode, action = 'LOOKUP', quantity = 1, notes = '') =>
+  apiCall(() => api.post('/inventory/barcode/scan/', { barcode, action, quantity, notes }));
+
+/**
+ * Get barcode image URL for a product.
+ * @param {number} productId - Product ID
+ * @param {string} format - svg or png
+ */
+export const getBarcodeImageUrl = (productId, format = 'svg') => {
+  const baseURL = api.defaults.baseURL;
+  return `${baseURL}/inventory/barcode/image/${productId}/?format=${format}`;
+};
+
+/**
+ * Download barcode label PDF for selected products.
+ * @param {number[]} productIds - Array of product IDs
+ * @param {number} copiesPerProduct - Number of copies per product
+ * @param {string} labelSize - small | medium | large
+ */
+export const downloadBarcodeLabels = async (productIds, copiesPerProduct = 1, labelSize = 'medium') => {
+  try {
+    const response = await api.post('/inventory/barcode/labels/', {
+      product_ids: productIds,
+      copies_per_product: copiesPerProduct,
+      label_size: labelSize,
+    }, {
+      responseType: 'blob',
+    });
+
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'barcode_labels.pdf');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    return { data: true, error: null };
+  } catch (error) {
+    console.error('Barcode label PDF error:', error);
+    let errorMessage = 'Failed to generate barcode labels';
+    if (error.response && error.response.data instanceof Blob) {
+      const text = await error.response.data.text();
+      try {
+        const json = JSON.parse(text);
+        errorMessage = json.error || json.detail || errorMessage;
+      } catch (e) {
+        errorMessage = text || errorMessage;
+      }
+    }
+    return { data: null, error: errorMessage };
+  }
+};
+
+/**
+ * Get barcode scan logs.
+ * @param {object} params - { product, action, from_date, to_date }
+ */
+export const getBarcodeScanLogs = (params = {}) =>
+  apiCall(() => api.get('/inventory/barcode-scan-logs/', { params }));
+
+/**
+ * Regenerate barcodes for products missing them.
+ */
+export const regenerateBarcodes = () =>
+  apiCall(() => api.post('/inventory/barcode/regenerate/'));
+

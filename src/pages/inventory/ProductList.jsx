@@ -5,7 +5,8 @@ import * as inventoryAPI from '../../api/inventoryAPI';
 import { getCustomerDropdown } from '../../api/customerAPI';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit2, Trash2, Loader2, Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import Barcode from 'react-barcode';
+import { Plus, Search, Edit2, Trash2, Loader2, Package, ChevronLeft, ChevronRight, ScanLine, Printer, X, Eye } from 'lucide-react';
 
 const UNIT_OPTIONS = ['Nos', 'Kg', 'Ltr', 'Mtr', 'Box', 'Pcs', 'Set', 'Pair', 'Dozen', 'Other'];
 const TAX_OPTIONS = [0, 5, 12, 18, 28];
@@ -26,6 +27,9 @@ export default function ProductList() {
   const [editId, setEditId] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [formData, setFormData] = useState(initialFormData);
+  const [barcodeModal, setBarcodeModal] = useState(null); // product object
+  const [selectedProducts, setSelectedProducts] = useState(new Set());
+  const [isPrintingLabels, setIsPrintingLabels] = useState(false);
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -135,12 +139,36 @@ export default function ProductList() {
           <h1 className="text-3xl font-sora font-bold text-slate-800">Products & Inventory</h1>
           <p className="text-slate-500 mt-1">Manage your products, stock, and pricing</p>
         </div>
-        <button
-          onClick={openAddModal}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#1a2744] text-white rounded-xl font-semibold hover:bg-[#243352] transition-all shadow-lg shadow-slate-300/30"
-        >
-          <Plus className="w-5 h-5" /> Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          {selectedProducts.size > 0 && (
+            <button
+              onClick={async () => {
+                setIsPrintingLabels(true);
+                const { error } = await inventoryAPI.downloadBarcodeLabels([...selectedProducts], 1, 'medium');
+                setIsPrintingLabels(false);
+                if (error) toast.error(error);
+                else { toast.success('Barcode labels PDF downloaded'); setSelectedProducts(new Set()); }
+              }}
+              disabled={isPrintingLabels}
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-all shadow-lg"
+            >
+              {isPrintingLabels ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              Print Labels ({selectedProducts.size})
+            </button>
+          )}
+          <button
+            onClick={() => navigate('/inventory/barcode-scanner')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition-all shadow-lg"
+          >
+            <ScanLine className="w-4 h-4" /> Scanner
+          </button>
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#1a2744] text-white rounded-xl font-semibold hover:bg-[#243352] transition-all shadow-lg shadow-slate-300/30"
+          >
+            <Plus className="w-5 h-5" /> Add Product
+          </button>
+        </div>
       </div>
 
       <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl shadow-xl shadow-slate-200/40 flex-1 flex flex-col overflow-hidden">
@@ -170,13 +198,18 @@ export default function ProductList() {
             <table className="w-full text-left border-collapse min-w-max">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wide border-b border-slate-100">
+                  <th className="font-medium p-4 w-10">
+                    <input type="checkbox" onChange={e => {
+                      if (e.target.checked) setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
+                      else setSelectedProducts(new Set());
+                    }} checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
+                    className="rounded border-slate-300" />
+                  </th>
                   <th className="font-medium p-4">SKU</th>
+                  <th className="font-medium p-4">Barcode</th>
                   <th className="font-medium p-4">Name</th>
-                  <th className="font-medium p-4">HSN Code</th>
                   <th className="font-medium p-4">Category</th>
-                  <th className="font-medium p-4 text-center">Unit</th>
                   <th className="font-medium p-4 text-right">Cost / Sell (₹)</th>
-                  <th className="font-medium p-4 text-center">Tax %</th>
                   <th className="font-medium p-4 text-center">Stock</th>
                   <th className="font-medium p-4">Status</th>
                   <th className="font-medium p-4 text-right">Actions</th>
@@ -189,15 +222,28 @@ export default function ProductList() {
 
                   return (
                     <tr key={product.id} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors group ${isOut ? 'bg-rose-50/30' : isLow ? 'bg-amber-50/30' : ''}`}>
+                      <td className="p-4">
+                        <input type="checkbox" checked={selectedProducts.has(product.id)}
+                          onChange={e => {
+                            const next = new Set(selectedProducts);
+                            e.target.checked ? next.add(product.id) : next.delete(product.id);
+                            setSelectedProducts(next);
+                          }} className="rounded border-slate-300" />
+                      </td>
                       <td className="p-4 text-sm font-mono text-slate-600">{product.sku}</td>
+                      <td className="p-4">
+                        {product.barcode ? (
+                          <button onClick={() => setBarcodeModal(product)}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-mono text-slate-600 transition-colors flex items-center gap-1" title="View Barcode">
+                            <ScanLine className="w-3 h-3" /> {product.barcode}
+                          </button>
+                        ) : <span className="text-xs text-slate-400">—</span>}
+                      </td>
                       <td className="p-4 text-sm font-medium text-slate-800">{product.name}</td>
-                      <td className="p-4 text-sm font-mono text-slate-500">{product.hsn_code || '—'}</td>
                       <td className="p-4 text-sm text-slate-500">{product.category_name || '—'}</td>
-                      <td className="p-4 text-sm text-center text-slate-500">{product.unit}</td>
                       <td className="p-4 text-sm text-slate-600 text-right">
                         ₹{parseFloat(product.cost_price).toLocaleString('en-IN')} / ₹{parseFloat(product.selling_price).toLocaleString('en-IN')}
                       </td>
-                      <td className="p-4 text-sm text-center text-slate-500">{product.tax_percentage}%</td>
                       <td className="p-4 text-sm font-semibold text-center">
                         <span className={isOut ? 'text-rose-600' : isLow ? 'text-amber-600' : 'text-slate-700'}>
                           {product.current_stock}
@@ -215,6 +261,9 @@ export default function ProductList() {
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex justify-end gap-1">
+                          <button onClick={() => setBarcodeModal(product)} className="p-2 text-violet-500 hover:text-violet-700 hover:bg-violet-50 rounded-full transition-colors" title="View Barcode">
+                            <ScanLine className="w-4 h-4" />
+                          </button>
                           <button onClick={() => handleEdit(product)} className="p-2 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-full transition-colors" title="Edit">
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -340,6 +389,33 @@ export default function ProductList() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Barcode View Modal ─── */}
+      {barcodeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6 text-center">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-800">Product Barcode</h2>
+              <button onClick={() => setBarcodeModal(null)} className="p-1 text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-1">{barcodeModal.name}</p>
+            <p className="text-xs text-slate-400 mb-4">SKU: {barcodeModal.sku} • ₹{parseFloat(barcodeModal.selling_price).toLocaleString('en-IN')}</p>
+            {barcodeModal.barcode && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6 mb-4 inline-block">
+                <Barcode value={barcodeModal.barcode} format="EAN13" width={2} height={70} fontSize={14} margin={10} background="#ffffff" lineColor="#1e293b" />
+              </div>
+            )}
+            <div className="flex gap-2 justify-center">
+              <button onClick={async () => {
+                const { error } = await inventoryAPI.downloadBarcodeLabels([barcodeModal.id], 1, 'medium');
+                if (error) toast.error(error); else toast.success('Label PDF downloaded');
+              }} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a2744] text-white rounded-xl font-semibold hover:bg-[#243352] transition-all">
+                <Printer className="w-4 h-4" /> Print Label
+              </button>
+            </div>
           </div>
         </div>
       )}

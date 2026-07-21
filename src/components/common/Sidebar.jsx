@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import {
   LayoutDashboard, Users, Upload, BarChart3, Settings, LogOut,
   Menu, X, CreditCard, ChevronRight, FileText, Package,
-  Plus, ArrowUpFromLine, ChevronDown, Box, Truck, ShoppingCart, PieChart
+  Plus, ArrowUpFromLine, ChevronDown, Box, Truck, ShoppingCart, PieChart, ScanLine
 } from 'lucide-react';
 import { APP_NAME } from '../../utils/constants';
 
@@ -29,6 +29,7 @@ const invoiceNavItems = [
       { path: '/inventory/sales', label: 'Sales', icon: ShoppingCart },
       { path: '/inventory/suppliers', label: 'Suppliers', icon: Users },
       { path: '/inventory/reports', label: 'Reports', icon: PieChart },
+      { path: '/inventory/barcode-scanner', label: 'Barcode Scanner', icon: ScanLine },
     ]
   },
   { path: '/settings', label: 'Settings', icon: Settings },
